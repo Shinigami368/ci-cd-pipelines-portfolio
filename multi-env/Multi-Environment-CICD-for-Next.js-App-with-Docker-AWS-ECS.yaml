@@ -1,0 +1,107 @@
+name: CI/CD Pipeline for Next.js App (Multi-Env)
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Variables Based on Branch
+        run: |
+          TIMESTAMP=$(date +%Y%m%d%H%M%S%N | cut -b1-15)
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+          if [[ $GITHUB_REF == "refs/heads/main" ]]; then
+            echo "ECR_REPOSITORY=example-main-nextjs-repo" >> $GITHUB_ENV
+            echo "TASK_DEFINITION_FAMILY=example-main-task-def" >> $GITHUB_ENV
+            echo "ECS_CLUSTER_NAME=example-main-cluster" >> $GITHUB_ENV
+            echo "ECS_SERVICE_NAME=example-main-service" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=example-main-container" >> $GITHUB_ENV
+          elif [[ $GITHUB_REF == "refs/heads/dev" ]]; then
+            echo "ECR_REPOSITORY=example-dev-nextjs-repo" >> $GITHUB_ENV
+            echo "TASK_DEFINITION_FAMILY=example-dev-task-def" >> $GITHUB_ENV
+            echo "ECS_CLUSTER_NAME=example-dev-cluster" >> $GITHUB_ENV
+            echo "ECS_SERVICE_NAME=example-dev-service" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=example-dev-container" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+
+      - name: Cache Build and Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            .next
+            node_modules
+          key: nextjs-build-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            nextjs-build-${{ runner.os }}-
+            nextjs-build-
+
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build Next.js
+        run: yarn next build
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.TIMESTAMP }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Fetch ECS Task Definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.TASK_DEFINITION_FAMILY }} \
+            --query 'taskDefinition' \
+            --output json > ecs-task-definition.json
+
+      - name: Update ECS Task Definition
+        id: render-task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ecs-task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.TIMESTAMP }}
+
+      - name: Deploy to ECS Service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER_NAME }}
+          service: ${{ env.ECS_SERVICE_NAME }}
+          wait-for-service-stability: false
