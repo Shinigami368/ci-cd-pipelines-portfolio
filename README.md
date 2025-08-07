@@ -18,7 +18,7 @@ This repository contains **template-based CI/CD pipelines** designed with reusab
 - 🔒 **Secrets-Based Configuration**: All environment values are expected to be passed via GitHub Secrets. No credentials or hardcoded values exist in the YAML files.
 - 🧱 **Modular Build Steps**: Built primarily using `uses:` syntax from GitHub’s official and community actions, instead of manual shell commands.
 - 🔁 **Rolling Deployments**: All ECS deployments are done via `rolling update` strategy for zero-downtime releases.
-- 🕒 **Versioned Image Tagging with Timestamps**: Docker images are tagged using timestamp-based versions (e.g., `20250808T152045`) instead of `latest`, ensuring reliable rollbacks and avoiding deployment collisions. This enables a deterministic history of releases and simplifies troubleshooting or reverting.
+- 🕒 **Versioned Image Tagging with Timestamps**: Docker images are tagged using timestamp-based versions (e.g., `20250808T152045`) instead of `latest`, ensuring reliable rollbacks and avoiding deployment collisions. This creates a deterministic deployment history across ECR and ECS.
 
 ---
 
@@ -70,6 +70,7 @@ This repository contains **template-based CI/CD pipelines** designed with reusab
 - 🚫 **Sensitive Data Masked**: All names, secrets, repository paths, and container IDs have been altered to prevent any data leakage.
 - ♻️ **Easily Reusable**: You can reuse any pipeline by replacing the service name, ECR repo, ECS settings, and GitHub secrets.
 - ⚙️ **Built for Production**: All pipelines have been tested and used in real deployment scenarios with active ECS clusters and services.
+- 🔁 **Built-In Rollback Friendly**: Each deploy creates a unique ECS task definition revision and timestamp-tagged Docker image. ECS automatically preserves a full version history, enabling seamless rollback to any previous state without requiring custom tooling or external version tracking.
 
 ---
 
