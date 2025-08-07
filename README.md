@@ -18,6 +18,7 @@ This repository contains **template-based CI/CD pipelines** designed with reusab
 - 🔒 **Secrets-Based Configuration**: All environment values are expected to be passed via GitHub Secrets. No credentials or hardcoded values exist in the YAML files.
 - 🧱 **Modular Build Steps**: Built primarily using `uses:` syntax from GitHub’s official and community actions, instead of manual shell commands.
 - 🔁 **Rolling Deployments**: All ECS deployments are done via `rolling update` strategy for zero-downtime releases.
+- 🕒 **Versioned Image Tagging with Timestamps**: Docker images are tagged using timestamp-based versions (e.g., `20250808T152045`) instead of `latest`, ensuring reliable rollbacks and avoiding deployment collisions. This enables a deterministic history of releases and simplifies troubleshooting or reverting.
 
 ---
 
@@ -51,13 +52,16 @@ This repository contains **template-based CI/CD pipelines** designed with reusab
 ### 3. Monorepo – Change Detection & Reusable Workflow
 
 - Detects which specific folder/service was changed
-- Triggers deploy only for affected service(s)
-- Calls a centralized reusable deployment workflow
-- Names, branches, and folder paths have been anonymized for security
-- Can be repurposed by adjusting folder names and secrets
+- Triggers deployment only for affected service(s)
+- Built using centralized reusable workflows
+- Two alternative strategies available:
+  - **Static Job-Based**: Each service has its own deployment job with conditional logic
+  - **Matrix-Based**: Uses a matrix to dynamically loop through services, reducing code duplication and improving scalability
+- Easily extensible for large microservice setups
 
 📄 [`monorepo/Monorepo-CICD-Change-Detection.yaml`](https://github.com/Shinigami368/ci-cd-pipelines-portfolio/blob/main/monorepo/Monorepo-CICD-Change-Detection.yaml)  
-📄 [`monorepo/Monorepo-CICD-ECS-Deployment.yaml`](https://github.com/Shinigami368/ci-cd-pipelines-portfolio/blob/main/monorepo/Monorepo-CICD-ECS-Deployment.yaml)
+📄 [`monorepo/Monorepo-CICD-ECS-Deployment.yaml`](https://github.com/Shinigami368/ci-cd-pipelines-portfolio/blob/main/monorepo/Monorepo-CICD-ECS-Deployment.yaml)  
+📄 [`monorepo/Monorepo-CICD-Matrix-Change-Detection.yaml`](https://github.com/Shinigami368/ci-cd-pipelines-portfolio/blob/main/monorepo/Monorepo-CICD-Matrix-Change-Detection.yaml)
 
 ---
 
