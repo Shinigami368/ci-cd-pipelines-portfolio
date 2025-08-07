@@ -1,0 +1,70 @@
+name: Monorepo Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/example-auth/**'
+      - 'services/example-backend/**'
+      - 'services/example-frontend/**'
+      - 'services/example-api/**'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      api: ${{ steps.filter.outputs.api }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            auth:
+              - 'services/example-auth/**'
+            backend:
+              - 'services/example-backend/**'
+            frontend:
+              - 'services/example-frontend/**'
+            api:
+              - 'services/example-api/**'
+
+  deploy-auth:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.auth == 'true'
+    uses: ./.github/workflows/Monorepo-Reusable-ECS-Deployment.yaml
+    with:
+      service_name: example-auth
+      path: services/example-auth
+    secrets: inherit
+
+  deploy-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    uses: ./.github/workflows/Monorepo-Reusable-ECS-Deployment.yaml
+    with:
+      service_name: example-backend
+      path: services/example-backend
+    secrets: inherit
+
+  deploy-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/Monorepo-Reusable-ECS-Deployment.yaml
+    with:
+      service_name: example-frontend
+      path: services/example-frontend
+    secrets: inherit
+
+  deploy-api:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true'
+    uses: ./.github/workflows/Monorepo-Reusable-ECS-Deployment.yaml
+    with:
+      service_name: example-api
+      path: services/example-api
+    secrets: inherit
