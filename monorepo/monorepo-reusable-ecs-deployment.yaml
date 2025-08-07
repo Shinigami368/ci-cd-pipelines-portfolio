@@ -1,0 +1,74 @@
+name: Monorepo Reusable ECS Deployment
+
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        required: true
+        type: string
+      path:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+      AWS_SECRET_ACCESS_KEY:
+      AWS_ACCOUNT_ID:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY: example/monorepo/${{ inputs.service_name }}
+      TASK_DEFINITION_FAMILY: Monorepo-${{ inputs.service_name == 'example-gateway' && 'Example-Gateway-Task-Definition' || inputs.service_name == 'example-auth' && 'Example-Auth-Task-Definition' || inputs.service_name == 'example-frontend' && 'Example-Frontend-Task-Definition' || inputs.service_name == 'example-backend' && 'Example-Backend-Task-Definition' || inputs.service_name == 'example-subscription' && 'Example-Subscription-Task-Definition' }}
+      ECS_CLUSTER_NAME: Monorepo-Example-Cluster
+      ECS_SERVICE_NAME: ${{ inputs.service_name == 'example-gateway' && 'Example-Gateway-Service' || inputs.service_name == 'example-auth' && 'Example-Auth-Service' || inputs.service_name == 'example-frontend' && 'Example-Frontend-Service' || inputs.service_name == 'example-backend' && 'Example-Backend-Service' || inputs.service_name == 'example-subscription' && 'Example-Subscription-Service' }}
+      CONTAINER_NAME: ${{ inputs.service_name == 'example-gateway' && 'monorepo-example-gateway' || inputs.service_name == 'example-auth' && 'monorepo-example-auth' || inputs.service_name == 'example-frontend' && 'monorepo-example-frontend' || inputs.service_name == 'example-backend' && 'monorepo-example-backend' || inputs.service_name == 'example-subscription' && 'monorepo-example-subscription' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set Image Tag (timestamp only)
+        run: |
+          echo "IMAGE_TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v2
+
+      - name: Build and Push Docker Image (timestamp only)
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ${{ inputs.path }}/Dockerfile
+          push: true
+          tags: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+      - name: Download Task Definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.TASK_DEFINITION_FAMILY }} \
+            --query "taskDefinition" \
+            --output json > task-def.json
+
+      - name: Render New Task Definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE_NAME }}
+          cluster: ${{ env.ECS_CLUSTER_NAME }}
