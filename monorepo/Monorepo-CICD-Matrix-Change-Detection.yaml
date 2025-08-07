@@ -1,0 +1,47 @@
+name: Monorepo Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/**'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      api: ${{ steps.filter.outputs.api }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            auth:
+              - 'services/example-auth/**'
+            backend:
+              - 'services/example-backend/**'
+            frontend:
+              - 'services/example-frontend/**'
+            api:
+              - 'services/example-api/**'
+
+  deploy-services:
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth, backend, frontend, api]
+    continue-on-error: false
+    steps:
+      - name: Deploy changed ${{ matrix.service }} service
+        if: ${{ needs.detect-changes.outputs[matrix.service] == 'true' }}
+        uses: ./.github/workflows/Monorepo-CICD-ECS-Deployment.yaml
+        with:
+          service_name: example-${{ matrix.service }}
+          path: services/example-${{ matrix.service }}
+        secrets: inherit
