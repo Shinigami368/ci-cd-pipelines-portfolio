@@ -1,0 +1,71 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Environment Variables Based on Branch
+        run: |
+          if [[ $GITHUB_REF == "refs/heads/main" ]]; then
+            echo "ECR_REPOSITORY=${{ secrets.MAIN_ECR_REPOSITORY }}" >> $GITHUB_ENV
+            echo "TASK_DEFINITION_FAMILY=${{ secrets.MAIN_TASK_DEFINITION_FAMILY }}" >> $GITHUB_ENV
+            echo "ECS_CLUSTER_NAME=${{ secrets.MAIN_ECS_CLUSTER_NAME }}" >> $GITHUB_ENV
+            echo "ECS_SERVICE_NAME=${{ secrets.MAIN_ECS_SERVICE_NAME }}" >> $GITHUB_ENV
+          elif [[ $GITHUB_REF == "refs/heads/dev" ]]; then
+            echo "ECR_REPOSITORY=${{ secrets.DEV_ECR_REPOSITORY }}" >> $GITHUB_ENV
+            echo "TASK_DEFINITION_FAMILY=${{ secrets.DEV_TASK_DEFINITION_FAMILY }}" >> $GITHUB_ENV
+            echo "ECS_CLUSTER_NAME=${{ secrets.DEV_ECS_CLUSTER_NAME }}" >> $GITHUB_ENV
+            echo "ECS_SERVICE_NAME=${{ secrets.DEV_ECS_SERVICE_NAME }}" >> $GITHUB_ENV
+          fi
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Build and Push Docker Image
+        run: |
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$TIMESTAMP
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+
+      - name: Fetch ECS Task Definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.TASK_DEFINITION_FAMILY }} \
+            --query 'taskDefinition' \
+            --output json > ecs-task-definition.json
+
+      - name: Render Updated ECS Task Definition
+        id: render-task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ecs-task-definition.json
+          container-name: ${{ secrets.CONTAINER_NAME }}
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.TIMESTAMP }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER_NAME }}
+          service: ${{ env.ECS_SERVICE_NAME }}
+          wait-for-service-stability: false
