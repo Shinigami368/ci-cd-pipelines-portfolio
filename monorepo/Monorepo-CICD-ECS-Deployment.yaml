@@ -21,10 +21,25 @@ jobs:
       AWS_REGION: us-east-1
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       ECR_REPOSITORY: example/monorepo/${{ inputs.service_name }}
-      TASK_DEFINITION_FAMILY: Monorepo-${{ inputs.service_name == 'example-gateway' && 'Example-Gateway-Task-Definition' || inputs.service_name == 'example-auth' && 'Example-Auth-Task-Definition' || inputs.service_name == 'example-frontend' && 'Example-Frontend-Task-Definition' || inputs.service_name == 'example-backend' && 'Example-Backend-Task-Definition' || inputs.service_name == 'example-subscription' && 'Example-Subscription-Task-Definition' }}
+      TASK_DEFINITION_FAMILY: Monorepo-${{ 
+        inputs.service_name == 'example-api' && 'Example-API-Task-Definition' || 
+        inputs.service_name == 'example-auth' && 'Example-Auth-Task-Definition' || 
+        inputs.service_name == 'example-frontend' && 'Example-Frontend-Task-Definition' || 
+        inputs.service_name == 'example-backend' && 'Example-Backend-Task-Definition' 
+      }}
       ECS_CLUSTER_NAME: Monorepo-Example-Cluster
-      ECS_SERVICE_NAME: ${{ inputs.service_name == 'example-gateway' && 'Example-Gateway-Service' || inputs.service_name == 'example-auth' && 'Example-Auth-Service' || inputs.service_name == 'example-frontend' && 'Example-Frontend-Service' || inputs.service_name == 'example-backend' && 'Example-Backend-Service' || inputs.service_name == 'example-subscription' && 'Example-Subscription-Service' }}
-      CONTAINER_NAME: ${{ inputs.service_name == 'example-gateway' && 'monorepo-example-gateway' || inputs.service_name == 'example-auth' && 'monorepo-example-auth' || inputs.service_name == 'example-frontend' && 'monorepo-example-frontend' || inputs.service_name == 'example-backend' && 'monorepo-example-backend' || inputs.service_name == 'example-subscription' && 'monorepo-example-subscription' }}
+      ECS_SERVICE_NAME: ${{ 
+        inputs.service_name == 'example-api' && 'Example-API-Service' || 
+        inputs.service_name == 'example-auth' && 'Example-Auth-Service' || 
+        inputs.service_name == 'example-frontend' && 'Example-Frontend-Service' || 
+        inputs.service_name == 'example-backend' && 'Example-Backend-Service' 
+      }}
+      CONTAINER_NAME: ${{ 
+        inputs.service_name == 'example-api' && 'monorepo-example-api' || 
+        inputs.service_name == 'example-auth' && 'monorepo-example-auth' || 
+        inputs.service_name == 'example-frontend' && 'monorepo-example-frontend' || 
+        inputs.service_name == 'example-backend' && 'monorepo-example-backend' 
+      }}
 
     steps:
       - uses: actions/checkout@v4
