@@ -2,6 +2,7 @@
 
 This repository contains **template-based CI/CD pipelines** designed with reusability, modularity, and security in mind. All workflows are built using GitHub Actions and follow AWS best practices for deploying Dockerized applications via ECR and ECS.
 
+These templates reflect the architecture I used to reduce production deployment times by up to 60% in my previous roles.
 ---
 
 ## 📁 Folder Structure
@@ -71,6 +72,8 @@ This repository contains **template-based CI/CD pipelines** designed with reusab
 - ♻️ **Easily Reusable**: You can reuse any pipeline by replacing the service name, ECR repo, ECS settings, and GitHub secrets.
 - ⚙️ **Built for Production**: All pipelines have been tested and used in real deployment scenarios with active ECS clusters and services.
 - 🔁 **Built-In Rollback Friendly**: Each deploy creates a unique ECS task definition revision and timestamp-tagged Docker image. ECS automatically preserves a full version history, enabling seamless rollback to any previous state without requiring custom tooling or external version tracking.
+
+Open to B2B/Contract Cloud & DevOps opportunities. Let's connect on https://www.linkedin.com/in/berkay-cakibey/ or reach out via cakibey368@gmail.com.
 
 ---
 
